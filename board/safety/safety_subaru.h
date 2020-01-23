@@ -14,6 +14,7 @@ const AddrBus SUBARU_TX_MSGS[] = {{0x122, 0}, {0x164, 0}, {0x221, 0}, {0x322, 0}
 AddrCheckStruct subaru_rx_checks[] = {
   {.addr = {0x119, 0x371}, .bus = 0, .expected_timestep = 20000U},
   {.addr = {0x240, 0x144}, .bus = 0, .expected_timestep = 50000U},
+  {.addr = {       0x27 }, .bus = 1, .expected_timestep = 50000U},
 };
 const int SUBARU_RX_CHECK_LEN = sizeof(subaru_rx_checks) / sizeof(subaru_rx_checks[0]);
 
@@ -41,8 +42,16 @@ static int subaru_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
     }
 
     // enter controls on rising edge of ACC, exit controls on ACC off
-    if (((addr == 0x240) || (addr == 0x144)) && (bus == 0)) {
-      int bit_shift = (addr == 0x240) ? 9 : 17;
+    if (
+      (((addr == 0x240) || (addr == 0x144)) && (bus == 0))
+      || ((addr == 0x27) && (bus == 1))
+    ) {
+      int bit_shift = -1;
+
+      if (addr == 0x240) bit_shift = 9;
+      else if (addr == 0x144) bit_shift = 17;
+      else if (addr == 0x27) bit_shift = 5;
+
       int cruise_engaged = ((GET_BYTES_48(to_push) >> bit_shift) & 1);
       if (cruise_engaged && !subaru_cruise_engaged_last) {
         controls_allowed = 1;
